@@ -1,0 +1,149 @@
+# Evmos测试网中文教程
+
+### 一、项目概览
+
+项目官网：https://evmos.dev/intro/overview.html
+
+项目twitter:https://twitter.com/EvmosOrg
+
+Evmos是一个可扩展、高吞吐量的权益证明区块链，与以太坊完全兼容并可互操作。它使用Cosmos SDK构建，运行在Tendermint Core共识引擎之上。
+
+Evmos允许将普通以太坊作为Cosmos特定于应用程序的区块链运行。这允许开发者拥有以太坊所有想要的特性，同时也能从Tendermint的PoS实现中获益。此外，因为它是构建在Cosmos SDK之上的，所以它将能够通过区块链通信协议与Cosmos生态系统的其他部分交换价值。
+
+### 二、加入测试网
+
+#### 1. 最低配置
+
+- 4 个或更多CPU 内核
+- 至少 500GB 的 SSD 磁盘存储
+- 至少 16GB 内存 (RAM)
+- 至少 100mbps 的网络带宽
+
+#### 2. 安装Go和环境配置
+
+```
+sudo apt-get update -y && sudo apt-get upgrade -y;
+sudo apt-get install build-essential -y;
+sudo snap install go --classic
+echo 'export GOPATH="$HOME/go"' >> ~/.profile
+echo 'export GOBIN="$GOPATH/bin"' >> ~/.profile
+echo 'export PATH="$GOBIN:$PATH"' >> ~/.profile
+source ~/.profile
+```
+
+使用`go verison`查看是否安装成功。
+
+#### 3. 下载源码编译
+
+```
+git clone https://github.com/tharsis/evmos.git
+cd evmos
+make install
+```
+
+使用evmosd version查看是否编译成功。
+
+#### 4. 创建key并切换为测试网
+
+```
+evmosd keys add <mykey>
+evmosd config chain-id evmos_9000-1
+evmosd init <your_custom_moniker> --chain-id evmos_9000-1
+```
+
+#### 5. 添加Genesis文件，添加seeds和persistent peers
+
+输入`sudo nano ~/.evmosd/config/config.toml`编辑配置文件，
+
+添加seeds，下面是官网给出的seeds，将文件中的seeds改为下面的配置。
+
+```
+c36cec90ded95d162b85f8ecd00ecd7c8849ca75@arsiamons.seed.evmos.org:26656
+3787335176bbb91bf14a67724ebe0f0940ca5afb@evmos-seed.artifact-staking.io:26656
+faa31510d9280e74e7f2e767a62023bd5c896c27@evmos-testnet.mercury-nodes.net:29447
+```
+
+添加persistent peers
+
+```
+TESTNET_REPO="https://raw.githubusercontent.com/tharsis/testnets/main/arsia_mons" && \
+export PEERS="$(curl -s "$TESTNET_REPO/peers.txt")"
+
+sed -i.bak -e "s/^persistent_peers *=.*/persistent_peers = \"$PEERS\"/" ~/.evmosd/config/config.toml
+```
+
+#### 6. 启动节点进行同步
+
+```
+evmosd start   // 启动节点
+```
+
+```
+evmosd status  // 查看节点状态
+```
+
+查看https://explorer.evmos.org，当节点block height达到测试网浏览器中高度代表同步完成。
+
+#### 7. 创建验证人
+
+使用以下命令创建验证人，需要更改moniker，mykey。
+
+```
+evmosd tx staking create-validator \
+  --amount=1000000000000aphoton \
+  --pubkey=$(evmosd tendermint show-validator) \
+  --moniker="<your_custom_moniker>" \
+  --chain-id="evmos_9000-1" \
+  --commission-rate="0.10" \
+  --commission-max-rate="0.20" \
+  --commission-max-change-rate="0.01" \
+  --min-self-delegation="1000000" \
+  --gas="auto" \
+  --gas-prices="0.025aphoton" \
+  --from=<mykey>
+```
+
+```
+evmosd q staking validators --limit 1000  | grep moniker | sort
+```
+
+在列表中查看有没有你的名字，如果有代表创建验证人成功，进入下一步，如果没有则失败，复制你的tx去https://explorer.evmos.org查看失败原因，然后重新创建验证人。
+
+```
+evmosd keys show <mykey>  // 查看节点信息，记录地址
+```
+
+记录你的节点地址，然后加入https://discord.com/invite/trje9XuAmy，verify后进入faucet频道领取测试币。
+
+#### 8. 质押测试代币
+
+查看你的验证人地址
+
+```
+evmosd debug addr 你的evmos开头的地址
+```
+
+Bech 32 Val就是你的验证人地址，你可以将你的测试代币质押到该地址。
+
+质押代币
+
+```
+evmosd tx staking delegate <validator address>
+<amount>aphoton --from <mykey> --gas 200000 --gas-prices 0.025aphoton
+```
+
+#### 9. 其他问题
+
+如果节点同步出现问题，通常是网络导致丢块，你的节点就会进入锁定状态，无法正常同步。我们可以从测试网浏览器中查看节点的status.
+
+![image-20211022195849203](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\image-20211022195849203.png)
+
+如果status为jail，运行以下命令解锁你的节点。
+
+```
+evmosd tx slashing unjail \
+  --from=<key_name> \
+  --chain-id=<chain_id>
+```
+
+希望大家踊跃参加测试网，前期奖励多多，喜欢这个教程请点个关注哦。
